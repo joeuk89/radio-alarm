@@ -66,8 +66,6 @@ public class AlarmService extends Service {
     /** An alarm nobody answers stops by itself after an hour. */
     private static final long MAX_RING_MS = 60 * 60_000L;
     private static final long TICK_MS = 250;
-    /** The backup tone never plays quieter than this, however low the ramp starts. */
-    private static final int BACKUP_MIN_PERCENT = 15;
 
     // Read by the lock-screen alarm screen and the web UI.
     public static volatile boolean ringing = false;
@@ -261,7 +259,8 @@ public class AlarmService extends Service {
             streamPlaying = player.isPlaying();
         }
         if (tone != null) {
-            float g = gainFor(Math.max(percent, BACKUP_MIN_PERCENT));
+            // The backup tone follows the alarm's own start, end and ramp exactly.
+            float g = gainFor(percent);
             try {
                 tone.setVolume(g, g);
             } catch (IllegalStateException ignored) {
@@ -313,7 +312,7 @@ public class AlarmService extends Service {
                 if (speaker != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     tone.setPreferredDevice(speaker);
                 }
-                float g = gainFor(Math.max(volumePercent, BACKUP_MIN_PERCENT));
+                float g = gainFor(volumePercent);
                 tone.setVolume(g, g);
                 tone.start();
             }
