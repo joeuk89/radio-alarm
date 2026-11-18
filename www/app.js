@@ -49,7 +49,7 @@ function mockCall(method, o) {
   if (method === 'setEnabled') mock.alarms.forEach((x) => { if (x.id === o.id) x.enabled = o.enabled; });
   if (method === 'deleteAlarm') mock.alarms = mock.alarms.filter((x) => x.id !== o.id);
   if (method === 'setFavourites') mock.favourites = clone(o.favourites);
-  if (method === 'testAlarm') return { scheduled: true, at: Date.now() + 60000 };
+  if (method === 'testAlarm') return { scheduled: true, at: Date.now() + o.seconds * 1000 };
   if (method === 'previewStart') mock.preview = { status: 'playing', url: o.url };
   if (method === 'previewStop') mock.preview = { status: 'idle', url: '' };
   if (method.startsWith('preview')) return mock.preview;
@@ -113,6 +113,8 @@ function route() {
     name = 'home';
   }
   if (view === 'stations' && name !== 'stations') stopPreview();
+  // Leaving the editor ends any alarm preview that is still playing.
+  if (view === 'edit' && name === 'home') call('stopAlarmPreview');
   view = name;
   for (const v of VIEWS) $('view-' + v).hidden = v !== name;
   window.scrollTo(0, 0);
@@ -208,7 +210,9 @@ function afterSave(result) {
 function renderEdit() {
   if (!draft) return;
   $('editTitle').textContent = draft.id ? 'Edit alarm' : 'New alarm';
-  if (document.activeElement !== $('editTime')) $('editTime').value = `${pad(draft.hour)}:${pad(draft.minute)}`;
+  const time = `${pad(draft.hour)}:${pad(draft.minute)}`;
+  $('editTimeText').textContent = time;
+  if ($('editTime').value !== time) $('editTime').value = time;
 
   const days = $('editDays');
   days.replaceChildren();
@@ -221,7 +225,8 @@ function renderEdit() {
   });
   $('editDaysNote').textContent = draft.days.some(Boolean)
     ? daysSummary(draft.days)
-    : 'No days chosen: rings once, then switches itself off';
+    : 'Rings once, then switches off';
+  $('editAllDays').textContent = draft.days.every(Boolean) ? 'Clear days' : 'Every day';
 
   $('editStationName').textContent = draft.stationName;
 
@@ -240,7 +245,29 @@ function renderEdit() {
 $('editTime').addEventListener('change', (e) => {
   const [h, m] = e.target.value.split(':').map(Number);
   if (Number.isFinite(h) && Number.isFinite(m)) { draft.hour = h; draft.minute = m; }
+  renderEdit();
 });
+
+$('editAllDays').addEventListener('click', () => {
+  const all = draft.days.every(Boolean);
+  draft.days = draft.days.map(() => !all);
+  renderEdit();
+});
+
+// Only one slider responds at a time: once a drag starts, the others ignore the finger
+// until it lifts, so sliding off one slider cannot move its neighbour.
+document.querySelectorAll('#view-edit input[type="range"]').forEach((slider) => {
+  slider.addEventListener('pointerdown', (e) => {
+    $('view-edit').classList.add('dragging');
+    slider.classList.add('active');
+    try { slider.setPointerCapture(e.pointerId); } catch (err) { /* not essential */ }
+  });
+});
+function endSliderDrag() {
+  $('view-edit').classList.remove('dragging');
+  document.querySelectorAll('#view-edit input[type="range"].active').forEach((s) => s.classList.remove('active'));
+}
+['pointerup', 'pointercancel', 'touchend', 'touchcancel'].forEach((type) => window.addEventListener(type, endSliderDrag));
 
 $('startVolume').addEventListener('input', (e) => {
   draft.startVolume = Number(e.target.value);
@@ -258,7 +285,7 @@ $('snoozeMinutes').addEventListener('input', (e) => { draft.snoozeMinutes = Numb
 $('editStation').addEventListener('click', () => go('stations'));
 $('editCancel').addEventListener('click', back);
 
-$('editSave').addEventListener('click', () => {
+function saveDraft() {
   // Saving an alarm switches it on: that is nearly always what was meant.
   draft.enabled = true;
   call('saveAlarm', { alarm: draft }).then((result) => {
@@ -267,23 +294,40 @@ $('editSave').addEventListener('click', () => {
     back();
     afterSave(result);
   });
-});
+}
+$('editSave').addEventListener('click', saveDraft);
+$('editSaveBottom').addEventListener('click', saveDraft);
 
 $('editDelete').addEventListener('click', () => {
-  call('deleteAlarm', { id: draft.id }).then((result) => {
-    draft = null;
-    state = result;
-    back();
+  askConfirm(`Delete the ${pad(draft.hour)}:${pad(draft.minute)} alarm?`).then((yes) => {
+    if (!yes || !draft) return;
+    call('deleteAlarm', { id: draft.id }).then((result) => {
+      draft = null;
+      state = result;
+      back();
+    });
   });
 });
 
-$('editTest').addEventListener('click', () => {
-  call('testAlarm', { alarm: draft, seconds: 60, badStream: false }).then((result) => {
-    $('editNote').textContent = result.scheduled
-      ? `Test set for ${secFmt.format(new Date(result.at))}. Lock the phone now.`
-      : 'Could not set the test — open the reliability check.';
-  });
-});
+// Rings straight away with these settings, on the real alarm screen.
+$('editPreview').addEventListener('click', () => call('previewAlarm', { alarm: draft }));
+
+// ---- Confirmation dialog --------------------------------------------------------------------
+
+let confirmResolve = null;
+function askConfirm(text) {
+  $('confirmText').textContent = text;
+  $('confirm').hidden = false;
+  return new Promise((resolve) => { confirmResolve = resolve; });
+}
+function closeConfirm(answer) {
+  $('confirm').hidden = true;
+  if (confirmResolve) confirmResolve(answer);
+  confirmResolve = null;
+}
+$('confirmYes').addEventListener('click', () => closeConfirm(true));
+$('confirmNo').addEventListener('click', () => closeConfirm(false));
+$('confirm').addEventListener('click', (e) => { if (e.target === $('confirm')) closeConfirm(false); });
 
 // ---- Station picker -------------------------------------------------------------------------
 
@@ -485,7 +529,7 @@ function renderSetup() {
 
 function test(badStream) {
   const alarm = (state.alarms[0] && clone(state.alarms[0])) || newAlarm();
-  call('testAlarm', { alarm, seconds: 60, badStream }).then((result) => {
+  call('testAlarm', { alarm, seconds: 10, badStream }).then((result) => {
     $('testNote').textContent = result.scheduled
       ? `${badStream ? 'Backup-tone test' : 'Test alarm'} set for ${secFmt.format(new Date(result.at))}. Lock the phone now.`
       : 'Could not set the test — fix the items above first.';
@@ -515,7 +559,7 @@ $('addAlarm').addEventListener('click', () => { draft = newAlarm(); go('edit'); 
 $('openSetup').addEventListener('click', () => go('setup'));
 document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', back));
 
-window.addEventListener('hashchange', route);
+window.addEventListener('hashchange', () => { closeConfirm(false); route(); });
 // Coming back from a settings screen or the alarm screen: re-read everything.
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { refresh(); $('clock').textContent = timeFmt.format(new Date()); } });
 window.addEventListener('focus', refresh);

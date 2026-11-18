@@ -41,11 +41,17 @@
     <button id="editSave" class="text-button strong accent-text">Save</button>
   </header>
 
-  <label class="visually-hidden" for="editTime">Alarm time</label>
-  <input id="editTime" class="big-time" type="time" value="07:00" required>
+  <!-- The time is drawn as plain text; an invisible time field on top opens Android's time picker. -->
+  <div class="time-wrap">
+    <div id="editTimeText" class="big-time" aria-hidden="true">07:00</div>
+    <input id="editTime" class="time-overlay" type="time" value="07:00" aria-label="Alarm time" required>
+  </div>
 
   <div id="editDays" class="days" role="group" aria-label="Repeat on"></div>
-  <p id="editDaysNote" class="muted small center"></p>
+  <div class="days-foot">
+    <span id="editDaysNote" class="muted small"></span>
+    <button id="editAllDays" class="link">Every day</button>
+  </div>
 
   <button id="editStation" class="card row-button">
     <span class="stack"><span class="muted small">Station</span><span id="editStationName" class="ellipsis">BBC Radio 4</span></span>
@@ -75,10 +81,11 @@
     </div>
   </section>
 
-  <button id="editTest" class="button">Test these settings in 1 minute</button>
-  <p id="editNote" class="muted small note">If the station hasn't started within 10 seconds, or drops out, a backup tone plays instead.</p>
+  <button id="editPreview" class="button">Preview alarm now</button>
+  <p id="editNote" class="muted small note">Plays exactly as the alarm will, starting from the start volume. If the station hasn't started within 10 seconds, a backup tone plays instead.</p>
 
   <div class="spacer"></div>
+  <button id="editSaveBottom" class="button primary">Save</button>
   <button id="editDelete" class="text-button danger">Delete alarm</button>
 </main>
 
@@ -122,14 +129,25 @@
 
   <h2 class="section-title">Try it</h2>
   <section class="tests">
-    <button id="testRadio" class="button">Test alarm in 1 minute</button>
-    <button id="testBackup" class="button">Test backup tone in 1 minute</button>
+    <button id="testRadio" class="button">Test alarm in 10 seconds</button>
+    <button id="testBackup" class="button">Test backup tone in 10 seconds</button>
     <p id="testNote" class="muted small note">Tap one, then lock the phone to check the whole chain.</p>
   </section>
 
   <div class="spacer"></div>
   <footer class="build muted" id="build"></footer>
 </main>
+
+<!-- Confirmation dialog -->
+<div id="confirm" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmText" hidden>
+  <div class="sheet card">
+    <p id="confirmText"></p>
+    <div class="sheet-actions">
+      <button id="confirmNo" class="button">Keep</button>
+      <button id="confirmYes" class="button destructive">Delete</button>
+    </div>
+  </div>
+</div>
 
 <script src="version.js"></script>
 <script src="app.js"></script>

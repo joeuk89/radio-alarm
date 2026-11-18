@@ -27,6 +27,7 @@ public class AlarmActivity extends Activity {
     private TextView status;
     private TextView snoozeLength;
     private ProgressBar ramp;
+    private long openedAt;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +41,7 @@ public class AlarmActivity extends Activity {
         }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        openedAt = android.os.SystemClock.elapsedRealtime();
         setContentView(R.layout.activity_alarm);
         station = findViewById(R.id.alarm_station);
         status = findViewById(R.id.alarm_status);
@@ -72,7 +74,12 @@ public class AlarmActivity extends Activity {
 
     private void refresh() {
         if (!AlarmService.ringing) {
-            finish();
+            // A preview opens this screen a moment before the alarm service has started.
+            if (android.os.SystemClock.elapsedRealtime() - openedAt > 3000) {
+                finish();
+            } else {
+                handler.postDelayed(refresh, 200);
+            }
             return;
         }
         station.setText(AlarmService.stationName);

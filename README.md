@@ -45,7 +45,7 @@ Volume: the alarm plays on the phone's alarm channel through the phone speaker, 
 2. **Add an alarm.** Tap Add alarm, set a time, choose days, Save. It appears in the list, switched on, and "Next alarm in…" updates.
 3. **Edit and delete.** Tap an alarm to edit it; Delete alarm removes it.
 4. **Search.** In the editor tap Station, search for a station, tap play to test it, tap the star to keep it, tap its name to choose it.
-5. **Quiet start.** Set Start volume to 1%, tap "Test these settings in 1 minute", lock the phone. It should begin inaudibly and rise.
+5. **Quiet start.** Set Start volume to 1%, tap "Preview alarm now". The alarm screen opens straight away; it should begin inaudibly and rise.
 6. **Two alarms.** Set two alarms a few minutes apart with different stations; each should ring with its own station.
 7. **One-off alarm.** Deselect every day, save, let it ring, stop it. It should now be switched off in the list.
 8. **Backup tone and tests.** Sliders icon, top right: both test buttons still work as before.

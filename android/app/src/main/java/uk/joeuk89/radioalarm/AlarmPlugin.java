@@ -121,6 +121,37 @@ public class AlarmPlugin extends Plugin {
         call.resolve(result);
     }
 
+    /** "Preview alarm now": rings immediately with the given settings, on the real alarm screen. */
+    @PluginMethod
+    public void previewAlarm(PluginCall call) {
+        JSObject json = call.getObject("alarm");
+        if (json == null) {
+            call.reject("No alarm given");
+            return;
+        }
+        stopPreview();
+        Context context = getContext();
+        if (!AlarmService.ringing) {
+            Intent service = new Intent(context, AlarmService.class)
+                .setAction(AlarmService.ACTION_START)
+                .putExtra(AlarmService.EXTRA_ALARM, json.toString())
+                .putExtra(AlarmService.EXTRA_IN_APP, true);
+            ContextCompat.startForegroundService(context, service);
+        }
+        getActivity().startActivity(new Intent(context, AlarmActivity.class));
+        call.resolve();
+    }
+
+    /** Stops the alarm only if it is a preview started from the app. */
+    @PluginMethod
+    public void stopAlarmPreview(PluginCall call) {
+        if (AlarmService.ringing && AlarmService.inAppPreview) {
+            getContext().startService(new Intent(getContext(), AlarmService.class)
+                .setAction(AlarmService.ACTION_STOP));
+        }
+        call.resolve();
+    }
+
     @PluginMethod
     public void cancelSnooze(PluginCall call) {
         AlarmScheduler.cancelSnooze(getContext());

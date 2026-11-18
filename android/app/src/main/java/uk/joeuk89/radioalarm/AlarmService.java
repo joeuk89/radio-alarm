@@ -51,6 +51,8 @@ public class AlarmService extends Service {
     static final String ACTION_SNOOZE = "uk.joeuk89.radioalarm.SNOOZE";
     static final String EXTRA_BAD_STREAM = "badStream";
     static final String EXTRA_ALARM = "alarm";
+    /** Set when the alarm is started from the app's "Preview alarm now" button. */
+    static final String EXTRA_IN_APP = "inApp";
 
     private static final String CHANNEL_RINGING = "alarm_ringing";
     private static final String CHANNEL_STATUS = "alarm_status";
@@ -69,6 +71,7 @@ public class AlarmService extends Service {
 
     // Read by the lock-screen alarm screen and the web UI.
     public static volatile boolean ringing = false;
+    public static volatile boolean inAppPreview = false;
     public static volatile boolean usingBackup = false;
     public static volatile boolean everPlayed = false;
     public static volatile int volumePercent = 0;
@@ -105,7 +108,8 @@ public class AlarmService extends Service {
             if (!ringing) {
                 AlarmStore.Alarm requested = AlarmStore.Alarm.fromJsonString(intent.getStringExtra(EXTRA_ALARM));
                 startRinging(requested != null ? requested : new AlarmStore.Alarm(),
-                    intent.getBooleanExtra(EXTRA_BAD_STREAM, false));
+                    intent.getBooleanExtra(EXTRA_BAD_STREAM, false),
+                    intent.getBooleanExtra(EXTRA_IN_APP, false));
             } else {
                 // Already ringing (e.g. a test fired during an alarm): just keep going.
                 showRingingNotification();
@@ -128,8 +132,9 @@ public class AlarmService extends Service {
 
     // ---- Starting -------------------------------------------------------------------------
 
-    private void startRinging(AlarmStore.Alarm which, boolean badStream) {
+    private void startRinging(AlarmStore.Alarm which, boolean badStream, boolean inApp) {
         alarm = which;
+        inAppPreview = inApp;
         ringing = true;
         usingBackup = false;
         everPlayed = false;
@@ -364,6 +369,7 @@ public class AlarmService extends Service {
 
     private void cleanUp() {
         ringing = false;
+        inAppPreview = false;
         handler.removeCallbacks(tick);
         stopBackupTone();
         if (player != null) {
@@ -419,6 +425,22 @@ public class AlarmService extends Service {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
         PendingIntent fullScreenIntent = PendingIntent.getActivity(this, 20, fullScreen,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        if (inAppPreview) {
+            // The app already has the alarm screen open, so a quiet notification is enough.
+            Notification quiet = new NotificationCompat.Builder(this, CHANNEL_STATUS)
+                .setSmallIcon(R.drawable.ic_stat_alarm)
+                .setContentTitle("Alarm preview")
+                .setContentText(stationName)
+                .setOngoing(true)
+                .setContentIntent(fullScreenIntent)
+                .addAction(0, "Stop", servicePendingIntent(ACTION_STOP, 22))
+                .build();
+            ServiceCompat.startForeground(this, NOTIFICATION_RINGING, quiet,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                    ? ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK : 0);
+            return;
+        }
 
         String time = new SimpleDateFormat("HH:mm", Locale.UK).format(new Date());
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_RINGING)
