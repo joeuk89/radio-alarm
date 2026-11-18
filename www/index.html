@@ -14,12 +14,31 @@
   </header>
 
   <section class="clock-block">
-    <div id="clock" class="clock" aria-live="off">--:--</div>
-    <div id="next" class="accent">No alarms set</div>
+    <div id="clock" class="clock">--:--</div>
+    <div id="next" class="accent">&nbsp;</div>
+    <button id="cancelSnooze" class="link" hidden>Cancel snooze</button>
   </section>
 
-  <section class="alarms">
-    <p class="muted empty">Alarms will appear here. This build only proves the app installs and runs.</p>
+  <section class="card alarm-card">
+    <div class="alarm-main">
+      <label class="visually-hidden" for="time">Alarm time</label>
+      <input id="time" class="time" type="time" value="07:00" required>
+      <div id="station" class="station">BBC Radio 4</div>
+      <div id="detail" class="muted small">Every day</div>
+    </div>
+    <button id="toggle" class="toggle" role="switch" aria-checked="false" aria-label="Alarm on or off">
+      <span class="track"><span class="thumb"></span></span>
+    </button>
+  </section>
+
+  <h2 class="section-title">Reliability check</h2>
+  <section class="card list" id="checks"></section>
+
+  <h2 class="section-title">Try it</h2>
+  <section class="tests">
+    <button id="testRadio" class="button">Test alarm in 1 minute</button>
+    <button id="testBackup" class="button">Test backup tone in 1 minute</button>
+    <p id="testNote" class="muted small note">Tap one, then lock the phone and wait.</p>
   </section>
 
   <footer class="build muted" id="build"></footer>

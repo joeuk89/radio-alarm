@@ -2,6 +2,7 @@
   --bg: #0B0D10;
   --card: #14171C;
   --line: #2A2F37;
+  --divider: #22262D;
   --text: #E8E4DC;
   --muted: #9AA0A6;
   --accent: #E8A33D;
@@ -11,7 +12,7 @@
 
 html, body {
   margin: 0;
-  height: 100%;
+  min-height: 100%;
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, Roboto, sans-serif;
@@ -19,8 +20,10 @@ html, body {
   user-select: none;
 }
 
+button { font: inherit; color: inherit; }
+
 .screen {
-  min-height: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   /* Keep clear of the status bar and gesture bar (the app draws edge to edge). */
@@ -28,7 +31,16 @@ html, body {
 }
 
 .muted { color: var(--muted); }
-.accent { color: var(--accent); font-size: 15px; }
+.small { font-size: 13px; }
+.accent { color: var(--accent); font-size: 15px; text-align: center; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
 
 .topbar {
   display: flex;
@@ -43,7 +55,7 @@ html, body {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 44px 0 48px;
+  padding: 36px 0 36px;
 }
 
 .clock {
@@ -54,18 +66,133 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
-.alarms { flex: 1; }
-
-.empty {
-  margin: 0;
-  padding: 16px;
-  background: var(--card);
-  border-radius: 16px;
+.link {
+  min-height: 44px;
+  padding: 0 12px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
   font-size: 14px;
-  line-height: 1.5;
+  text-decoration: underline;
 }
 
+.card {
+  background: var(--card);
+  border-radius: 16px;
+}
+
+.alarm-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+}
+
+.alarm-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+.time {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  margin: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  min-height: 48px;
+  color-scheme: dark;
+}
+.time::-webkit-calendar-picker-indicator { display: none; }
+.alarm-card.off .time, .alarm-card.off .station { color: var(--muted); }
+
+.station { font-size: 14px; }
+
+.toggle {
+  width: 52px;
+  height: 48px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.track {
+  width: 52px;
+  height: 30px;
+  border-radius: 15px;
+  background: var(--line);
+  display: flex;
+  align-items: center;
+  padding: 3px;
+  transition: background 0.15s;
+}
+.thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--muted);
+  transition: transform 0.15s, background 0.15s;
+}
+.toggle[aria-checked="true"] .track { background: var(--accent); }
+.toggle[aria-checked="true"] .thumb { background: var(--bg); transform: translateX(22px); }
+
+.section-title {
+  margin: 28px 4px 10px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.list .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 16px;
+  min-height: 64px;
+}
+.list .row + .row { border-top: 1px solid var(--divider); }
+.row .mark { flex: none; width: 20px; height: 20px; }
+.row .text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.row .title { font-size: 16px; }
+.row .sub { font-size: 13px; color: var(--muted); }
+.row.bad .sub { color: var(--accent); }
+
+.fix {
+  flex: none;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 22px;
+  border: 0;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tests { display: flex; flex-direction: column; gap: 10px; }
+
+.button {
+  height: 56px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 500;
+}
+.button:active, .fix:active { opacity: 0.7; }
+
+.note { margin: 2px 4px 0; line-height: 1.45; text-align: center; }
+
 .build {
+  margin-top: 28px;
   text-align: center;
   font-size: 12px;
 }
