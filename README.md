@@ -10,9 +10,9 @@ A personal Android alarm clock that wakes you gently to live internet radio.
 
 Every push to `main` builds an APK with GitHub Actions and publishes it as the latest release.
 
-1. On the phone, sign in to GitHub in Chrome and open
-   `https://github.com/joeuk89/radio-alarm/releases/latest`
-2. Under **Assets**, tap `radio-alarm.apk` to download it.
+1. On the phone, open this link in Chrome to download the newest build:
+   https://github.com/joeuk89/radio-alarm/releases/latest/download/radio-alarm.apk
+2. Wait for the download to finish (Chrome may warn that the file type can be harmful: choose **Download anyway**).
 3. Open the download. The first time, Android asks you to allow Chrome to install unknown apps: allow it, go back, and tap **Install**.
 4. Later builds install straight over the old one and keep your settings. If Play Protect asks about an unrecognised app, choose **Install anyway**.
 
@@ -43,4 +43,4 @@ npx cap sync android     # copies www/ into the Android project
 cd android && ./gradlew assembleDebug
 ```
 
-Builds are signed with the key in `android/app/sideload.keystore`. It is kept in the repo on purpose so every build has the same signature and can update the installed app. Keep the repo private, or replace the key with a GitHub secret before making it public.
+Builds are signed with the key in `android/app/sideload.keystore`. It is kept in the repo so every build has the same signature and can update the installed app. Because the repo is public, so is that key: only ever install APKs from this repo's own releases.
