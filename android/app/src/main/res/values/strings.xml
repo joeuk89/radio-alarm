@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Radio Alarm</string>
+    <string name="title_activity_main">Radio Alarm</string>
+    <string name="package_name">uk.joeuk89.radioalarm</string>
+    <string name="custom_url_scheme">uk.joeuk89.radioalarm</string>
+</resources>

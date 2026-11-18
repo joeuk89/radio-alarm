@@ -1,0 +1,71 @@
+:root {
+  --bg: #0B0D10;
+  --card: #14171C;
+  --line: #2A2F37;
+  --text: #E8E4DC;
+  --muted: #9AA0A6;
+  --accent: #E8A33D;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.screen {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* Keep clear of the status bar and gesture bar (the app draws edge to edge). */
+  padding: calc(env(safe-area-inset-top, 0px) + 28px) 20px calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.muted { color: var(--muted); }
+.accent { color: var(--accent); font-size: 15px; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.clock-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 44px 0 48px;
+}
+
+.clock {
+  font-size: 112px;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.alarms { flex: 1; }
+
+.empty {
+  margin: 0;
+  padding: 16px;
+  background: var(--card);
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.build {
+  text-align: center;
+  font-size: 12px;
+}

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sunrise made of radio waves: a rising sun whose rays are a broadcast signal, fading outwards like the volume ramp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#E8A33D"
+        android:pathData="M44,63 A10,10 0 0 1 64,63 Z" />
+    <path
+        android:pathData="M36,63 A18,18 0 0 1 72,63"
+        android:strokeColor="#E8A33D"
+        android:strokeAlpha="0.75"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M28,63 A26,26 0 0 1 80,63"
+        android:strokeColor="#E8A33D"
+        android:strokeAlpha="0.45"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M26,72 L82,72"
+        android:strokeColor="#E8E4DC"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+</vector>

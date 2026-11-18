@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Radio Alarm</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<main class="screen">
+  <header class="topbar">
+    <span id="date" class="muted"></span>
+  </header>
+
+  <section class="clock-block">
+    <div id="clock" class="clock" aria-live="off">--:--</div>
+    <div id="next" class="accent">No alarms set</div>
+  </section>
+
+  <section class="alarms">
+    <p class="muted empty">Alarms will appear here. This build only proves the app installs and runs.</p>
+  </section>
+
+  <footer class="build muted" id="build"></footer>
+</main>
+<script src="version.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
