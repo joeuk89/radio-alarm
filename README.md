@@ -23,17 +23,35 @@ The build number is shown at the bottom of the app's main screen and matches the
 | Stage | What it adds | Status |
 |---|---|---|
 | 1 | Repo, app shell, icon, APK build | Done |
-| 2 | One hardcoded BBC Radio 4 alarm: native scheduling, volume ramp, lock-screen UI, snooze/stop, backup tone, reboot survival, reliability check | Next |
-| 3 | Alarm list and editor | |
+| 2 | One BBC Radio 4 alarm: native scheduling, volume ramp, lock-screen UI, snooze/stop, backup tone, reboot survival, reliability check | Built, being tested |
+| 3 | Alarm list and editor | Next |
 | 4 | Station search, favourites, test-play | |
 | 5 | Polish | |
 
-## Testing stage 1
+## How the alarm works
 
-1. Install the APK as above.
-2. Check the home-screen icon: a sunrise made of radio waves, amber on near-black.
-3. Open the app: dark screen, large live clock, today's date, and `Build N` at the bottom.
-4. Leave it open across a minute change and check the clock updates.
+- `AlarmScheduler` registers the alarm with `AlarmManager.setAlarmClock()`, the same mechanism the built-in Clock app uses.
+- `AlarmReceiver` is called by Android at alarm time and starts `AlarmService`.
+- `AlarmService` is a foreground service. It plays the station with Media3 ExoPlayer (HLS), ramps the volume, and switches to the bundled tone (`res/raw/backup_tone.ogg`) if the station fails outright or has produced no sound for 10 seconds. While on the tone it retries the station every 20 seconds.
+- `AlarmActivity` is the native screen shown over the lock screen, with Snooze and Stop.
+- `BootReceiver` re-registers the alarm after a restart, app update, or clock change.
+- `AlarmPlugin` connects the web UI to all of the above.
+
+Volume: the alarm plays on the phone's alarm channel through the phone speaker. While ringing it sets the alarm-volume slider to full and controls loudness itself (5% rising to 60% over 3 minutes in this stage), then puts the slider back.
+
+## Testing stage 2
+
+Install the newest build over the old one, open the app, then:
+
+1. **Reliability check.** Tap **Fix** on every row that has one, until all four rows show a tick. Notifications shows a prompt; Battery asks whether the app may always run in the background (choose Allow).
+2. **Test alarm, phone locked.** Tap **Test alarm in 1 minute**, lock the phone, put it down. Expect: the screen lights up with the alarm screen, Radio 4 starts very quietly and rises over 3 minutes, and the status line reads "Live · volume rising".
+3. **Snooze.** Tap Snooze. Expect: silence, a "Snoozed until" notification, and the alarm again 9 minutes later. To skip the wait, tap **Cancel snooze** in the notification or the app.
+4. **Stop.** Run another test and tap Stop. Expect: silence, and the phone's own alarm volume slider back where it was.
+5. **Backup tone.** Tap **Test backup tone in 1 minute** and lock the phone. This uses a station address that cannot work. Expect: a soft chime within a second or two and the status "Backup tone · station unavailable".
+6. **No internet.** Turn on aeroplane mode, tap **Test alarm in 1 minute**, lock the phone. Expect: the chime within about 10 seconds. Turn aeroplane mode off while it rings: the radio should take over within about 20 seconds.
+7. **Phone in use.** Run a test with the phone unlocked. Expect: a pop-up notification with Snooze and Stop rather than the full screen.
+8. **Restart.** Set the real alarm a few minutes ahead and switch it on, restart the phone, and do not unlock it. Expect: it still rings.
+9. **Overnight.** Set it for tomorrow morning and use it for real, with another alarm as a safety net the first night.
 
 ## Working on it
 
