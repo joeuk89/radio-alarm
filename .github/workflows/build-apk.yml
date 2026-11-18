@@ -38,9 +38,27 @@ jobs:
       - name: Copy web UI into the Android project
         run: npx cap sync android
 
+      - name: Restore signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.SIDELOAD_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.SIDELOAD_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::Signing secrets are missing. Add SIDELOAD_KEYSTORE_B64 and SIDELOAD_KEYSTORE_PASSWORD (see README)."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > android/app/sideload.keystore
+
       - name: Build APK
         working-directory: android
+        env:
+          SIDELOAD_KEYSTORE_PASSWORD: ${{ secrets.SIDELOAD_KEYSTORE_PASSWORD }}
         run: ./gradlew assembleDebug --no-daemon
+
+      - name: Show signing certificate
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | grep "SHA-256"
 
       - name: Rename APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk radio-alarm.apk

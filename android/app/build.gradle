@@ -1,5 +1,7 @@
 apply plugin: 'com.android.application'
 
+def sideloadKeystore = file("sideload.keystore")
+def sideloadPassword = System.getenv("SIDELOAD_KEYSTORE_PASSWORD")
 def ciBuildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
 
 android {
@@ -20,18 +22,23 @@ android {
         }
     }
     signingConfigs {
-        // A fixed key kept in the repo, so each new build can be installed over the previous one
-        // without uninstalling. Fine for a personal sideloaded app; never use it for a store release.
-        sideload {
-            storeFile file("sideload.keystore")
-            storePassword "radioalarm"
-            keyAlias "sideload"
-            keyPassword "radioalarm"
+        // The sideload key is not in the repo. GitHub Actions restores it from a secret so every
+        // build has the same signature and installs over the previous one. Without it (a local
+        // build), Gradle falls back to its throwaway debug key.
+        if (sideloadKeystore.exists() && sideloadPassword) {
+            sideload {
+                storeFile sideloadKeystore
+                storePassword sideloadPassword
+                keyAlias "sideload"
+                keyPassword sideloadPassword
+            }
         }
     }
     buildTypes {
         debug {
-            signingConfig signingConfigs.sideload
+            if (signingConfigs.findByName("sideload")) {
+                signingConfig signingConfigs.sideload
+            }
         }
         release {
             minifyEnabled false

@@ -1,2 +1,5 @@
 /build/*
 !/build/.npmkeep
+
+# Signing key (restored from a GitHub secret during the build)
+sideload.keystore

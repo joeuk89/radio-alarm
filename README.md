@@ -43,4 +43,4 @@ npx cap sync android     # copies www/ into the Android project
 cd android && ./gradlew assembleDebug
 ```
 
-Builds are signed with the key in `android/app/sideload.keystore`. It is kept in the repo so every build has the same signature and can update the installed app. Because the repo is public, so is that key: only ever install APKs from this repo's own releases.
+Builds are signed with a private key that is not in the repo. GitHub Actions restores it from two repository secrets, `SIDELOAD_KEYSTORE_B64` (the keystore, base64-encoded) and `SIDELOAD_KEYSTORE_PASSWORD`, so every build has the same signature and installs over the previous one. If those secrets are ever replaced with a different key, uninstall the app before installing the next build.
