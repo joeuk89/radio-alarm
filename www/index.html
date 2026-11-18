@@ -61,23 +61,23 @@
   <section class="card sliders">
     <span class="muted small">Gentle wake</span>
     <div class="slider">
-      <div class="slider-head"><label for="startVolume">Start volume</label><span id="startVolumeValue">5%</span></div>
-      <input id="startVolume" type="range" min="0" max="100" step="1">
+      <div class="slider-head"><span id="startVolumeLabel">Start volume</span><span id="startVolumeValue"></span></div>
+      <div id="startVolume" class="range" role="slider" tabindex="0" aria-labelledby="startVolumeLabel" data-min="0" data-max="100"><div class="range-track"></div><div class="range-fill"></div><div class="range-thumb"></div></div>
     </div>
     <div class="slider">
-      <div class="slider-head"><label for="endVolume">End volume</label><span id="endVolumeValue">60%</span></div>
-      <input id="endVolume" type="range" min="0" max="100" step="1">
+      <div class="slider-head"><span id="endVolumeLabel">End volume</span><span id="endVolumeValue"></span></div>
+      <div id="endVolume" class="range" role="slider" tabindex="0" aria-labelledby="endVolumeLabel" data-min="0" data-max="100"><div class="range-track"></div><div class="range-fill"></div><div class="range-thumb"></div></div>
     </div>
     <div class="slider">
-      <div class="slider-head"><label for="rampMinutes">Ramp over</label><span id="rampMinutesValue">3 min</span></div>
-      <input id="rampMinutes" type="range" min="0" max="30" step="1">
+      <div class="slider-head"><span id="rampMinutesLabel">Ramp over</span><span id="rampMinutesValue"></span></div>
+      <div id="rampMinutes" class="range" role="slider" tabindex="0" aria-labelledby="rampMinutesLabel" data-min="0" data-max="30"><div class="range-track"></div><div class="range-fill"></div><div class="range-thumb"></div></div>
     </div>
   </section>
 
   <section class="card sliders">
     <div class="slider">
-      <div class="slider-head"><label for="snoozeMinutes">Snooze length</label><span id="snoozeMinutesValue">9 min</span></div>
-      <input id="snoozeMinutes" type="range" min="1" max="30" step="1">
+      <div class="slider-head"><span id="snoozeMinutesLabel">Snooze length</span><span id="snoozeMinutesValue"></span></div>
+      <div id="snoozeMinutes" class="range" role="slider" tabindex="0" aria-labelledby="snoozeMinutesLabel" data-min="1" data-max="30"><div class="range-track"></div><div class="range-fill"></div><div class="range-thumb"></div></div>
     </div>
   </section>
 
@@ -85,7 +85,10 @@
   <p id="editNote" class="muted small note">Plays exactly as the alarm will, starting from the start volume. If the station hasn't started within 10 seconds, a backup tone plays instead.</p>
 
   <div class="spacer"></div>
-  <button id="editSaveBottom" class="button primary">Save</button>
+  <div class="pair">
+    <button id="editCancelBottom" class="button">Cancel</button>
+    <button id="editSaveBottom" class="button primary">Save</button>
+  </div>
   <button id="editDelete" class="text-button danger">Delete alarm</button>
 </main>
 
@@ -138,14 +141,11 @@
   <footer class="build muted" id="build"></footer>
 </main>
 
-<!-- Confirmation dialog -->
+<!-- Dialog for confirmations -->
 <div id="confirm" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmText" hidden>
   <div class="sheet card">
     <p id="confirmText"></p>
-    <div class="sheet-actions">
-      <button id="confirmNo" class="button">Keep</button>
-      <button id="confirmYes" class="button destructive">Delete</button>
-    </div>
+    <div id="confirmActions" class="sheet-actions"></div>
   </div>
 </div>
 

@@ -205,7 +205,9 @@ button:active { opacity: 0.7; }
   gap: 8px;
 }
 
-.button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; margin-bottom: 4px; }
+.button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
+.pair { display: flex; gap: 10px; margin-bottom: 4px; }
+.pair .button { flex: 1; }
 .button.destructive { border-color: var(--danger); color: var(--danger); }
 
 .modal {
@@ -221,6 +223,8 @@ button:active { opacity: 0.7; }
 .sheet p { margin: 0 4px 18px; font-size: 16px; line-height: 1.45; }
 .sheet-actions { display: flex; gap: 10px; }
 .sheet-actions .button { flex: 1; }
+.sheet-actions.stacked { flex-direction: column; }
+.sheet-actions.stacked .button { flex: none; }
 
 /* ---- Edit ---- */
 
@@ -288,10 +292,25 @@ button:active { opacity: 0.7; }
 
 .sliders { display: flex; flex-direction: column; gap: 28px; padding: 18px 16px 20px; margin-bottom: 12px; }
 .slider { display: flex; flex-direction: column; gap: 8px; }
-/* While one slider is being dragged, the others ignore the finger. */
-.dragging input[type="range"]:not(.active) { pointer-events: none; }
+
 .slider-head { display: flex; justify-content: space-between; font-size: 15px; font-variant-numeric: tabular-nums; }
-input[type="range"] { width: 100%; height: 44px; margin: 0; accent-color: var(--accent); touch-action: pan-y; }
+/* Custom sliders: they move only on a sideways drag, so swiping up or down over them scrolls the page. */
+.range { position: relative; height: 44px; touch-action: pan-y; outline: none; --f: 0; }
+.range-track, .range-fill { position: absolute; top: 20px; height: 4px; border-radius: 2px; }
+.range-track { left: 0; right: 0; background: var(--line); }
+.range-fill { left: 0; width: calc(12px + (100% - 24px) * var(--f)); background: var(--accent); }
+.range-thumb {
+  position: absolute;
+  top: 10px;
+  left: calc((100% - 24px) * var(--f));
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--accent);
+  transition: box-shadow 0.12s;
+}
+.range.active .range-thumb { box-shadow: 0 0 0 9px rgba(232, 163, 61, 0.22); }
+.range:focus-visible .range-thumb { outline: 2px solid var(--text); outline-offset: 2px; }
 
 .note { margin: 10px 4px 0; line-height: 1.45; text-align: center; }
 .note.left { text-align: left; font-size: 14px; margin: 0 4px 16px; }

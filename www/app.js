@@ -65,12 +65,20 @@ function call(method, options = {}) {
 
 let state = null;      // everything the native side knows
 let draft = null;      // the alarm being edited
+let draftOriginal = ''; // how it looked when the editor opened, to spot unsaved changes
 let view = 'home';
 let preview = { status: 'idle', url: '' };
 let previewTimer = null;
 let results = null;    // station search results, or null before any search
 let searchSeq = 0;
 let searchTimer = null;
+
+function openEditor(alarm) {
+  delete alarm.next;
+  draft = alarm;
+  draftOriginal = JSON.stringify(alarm);
+  go('edit');
+}
 
 function newAlarm() {
   const fav = (state && state.favourites && state.favourites[0]) || { name: 'BBC Radio 4', url: '', hls: true };
@@ -179,7 +187,7 @@ function renderHome() {
     open.appendChild(el('div', 'alarm-time', `${pad(a.hour)}:${pad(a.minute)}`));
     open.appendChild(el('div', 'alarm-station ellipsis', a.stationName));
     open.appendChild(el('div', 'muted small', `${daysSummary(a.days)} · ${a.enabled ? rampSummary(a) : 'off'}`));
-    open.addEventListener('click', () => { draft = clone(a); go('edit'); });
+    open.addEventListener('click', () => { openEditor(clone(a)); });
 
     const toggle = el('button', 'toggle');
     toggle.setAttribute('role', 'switch');
@@ -230,10 +238,10 @@ function renderEdit() {
 
   $('editStationName').textContent = draft.stationName;
 
-  $('startVolume').value = draft.startVolume;
-  $('endVolume').value = draft.endVolume;
-  $('rampMinutes').value = Math.round(draft.rampSeconds / 60);
-  $('snoozeMinutes').value = draft.snoozeMinutes;
+  sliders.startVolume.set(draft.startVolume);
+  sliders.endVolume.set(draft.endVolume);
+  sliders.rampMinutes.set(Math.round(draft.rampSeconds / 60));
+  sliders.snoozeMinutes.set(draft.snoozeMinutes);
   $('startVolumeValue').textContent = draft.startVolume + '%';
   $('endVolumeValue').textContent = draft.endVolume + '%';
   $('rampMinutesValue').textContent = draft.rampSeconds ? Math.round(draft.rampSeconds / 60) + ' min' : 'Off';
@@ -254,36 +262,81 @@ $('editAllDays').addEventListener('click', () => {
   renderEdit();
 });
 
-// Only one slider responds at a time: once a drag starts, the others ignore the finger
-// until it lifts, so sliding off one slider cannot move its neighbour.
-document.querySelectorAll('#view-edit input[type="range"]').forEach((slider) => {
-  slider.addEventListener('pointerdown', (e) => {
-    $('view-edit').classList.add('dragging');
-    slider.classList.add('active');
-    try { slider.setPointerCapture(e.pointerId); } catch (err) { /* not essential */ }
-  });
-});
-function endSliderDrag() {
-  $('view-edit').classList.remove('dragging');
-  document.querySelectorAll('#view-edit input[type="range"].active').forEach((s) => s.classList.remove('active'));
-}
-['pointerup', 'pointercancel', 'touchend', 'touchcancel'].forEach((type) => window.addEventListener(type, endSliderDrag));
+// Sliders respond only to a sideways drag (or a clean tap), never to a swipe that is scrolling
+// the page, and a drag moves the value from where it was instead of jumping to the finger.
+function makeSlider(id, onInput) {
+  const node = $(id);
+  const min = Number(node.dataset.min);
+  const max = Number(node.dataset.max);
+  const THUMB = 24;
+  let value = min;
+  let touch = null;
 
-$('startVolume').addEventListener('input', (e) => {
-  draft.startVolume = Number(e.target.value);
-  if (draft.endVolume < draft.startVolume) draft.endVolume = draft.startVolume;
-  renderEdit();
-});
-$('endVolume').addEventListener('input', (e) => {
-  draft.endVolume = Number(e.target.value);
-  if (draft.startVolume > draft.endVolume) draft.startVolume = draft.endVolume;
-  renderEdit();
-});
-$('rampMinutes').addEventListener('input', (e) => { draft.rampSeconds = Number(e.target.value) * 60; renderEdit(); });
-$('snoozeMinutes').addEventListener('input', (e) => { draft.snoozeMinutes = Number(e.target.value); renderEdit(); });
+  const paint = () => {
+    node.style.setProperty('--f', String((value - min) / (max - min)));
+    node.setAttribute('aria-valuenow', String(value));
+  };
+  const fromUser = (v) => {
+    v = Math.round(Math.max(min, Math.min(max, v)));
+    if (v !== value) { value = v; paint(); onInput(v); }
+  };
+  node.setAttribute('aria-valuemin', String(min));
+  node.setAttribute('aria-valuemax', String(max));
+
+  node.addEventListener('pointerdown', (e) => {
+    touch = { id: e.pointerId, x: e.clientX, y: e.clientY, value, dragging: false };
+  });
+  node.addEventListener('pointermove', (e) => {
+    if (!touch || e.pointerId !== touch.id) return;
+    const dx = e.clientX - touch.x;
+    const dy = e.clientY - touch.y;
+    if (!touch.dragging) {
+      if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+      touch.dragging = true;
+      node.classList.add('active');
+      try { node.setPointerCapture(e.pointerId); } catch (err) { /* not essential */ }
+    }
+    fromUser(touch.value + (dx / Math.max(1, node.clientWidth - THUMB)) * (max - min));
+  });
+  const end = (e) => {
+    if (!touch) return;
+    const still = Math.abs(e.clientX - touch.x) < 6 && Math.abs(e.clientY - touch.y) < 6;
+    if (e.type === 'pointerup' && !touch.dragging && still) {
+      const box = node.getBoundingClientRect();
+      fromUser(min + ((e.clientX - box.left - THUMB / 2) / Math.max(1, box.width - THUMB)) * (max - min));
+    }
+    touch = null;
+    node.classList.remove('active');
+  };
+  node.addEventListener('pointerup', end);
+  node.addEventListener('pointercancel', end);
+  node.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { fromUser(value - 1); e.preventDefault(); }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { fromUser(value + 1); e.preventDefault(); }
+  });
+
+  paint();
+  return { set(v) { value = v; paint(); } };
+}
+
+const sliders = {
+  startVolume: makeSlider('startVolume', (v) => {
+    draft.startVolume = v;
+    if (draft.endVolume < v) draft.endVolume = v;
+    renderEdit();
+  }),
+  endVolume: makeSlider('endVolume', (v) => {
+    draft.endVolume = v;
+    if (draft.startVolume > v) draft.startVolume = v;
+    renderEdit();
+  }),
+  rampMinutes: makeSlider('rampMinutes', (v) => { draft.rampSeconds = v * 60; renderEdit(); }),
+  snoozeMinutes: makeSlider('snoozeMinutes', (v) => { draft.snoozeMinutes = v; renderEdit(); }),
+};
 
 $('editStation').addEventListener('click', () => go('stations'));
 $('editCancel').addEventListener('click', back);
+$('editCancelBottom').addEventListener('click', back);
 
 function saveDraft() {
   // Saving an alarm switches it on: that is nearly always what was meant.
@@ -299,7 +352,10 @@ $('editSave').addEventListener('click', saveDraft);
 $('editSaveBottom').addEventListener('click', saveDraft);
 
 $('editDelete').addEventListener('click', () => {
-  askConfirm(`Delete the ${pad(draft.hour)}:${pad(draft.minute)} alarm?`).then((yes) => {
+  ask(`Delete the ${pad(draft.hour)}:${pad(draft.minute)} alarm?`, [
+    { label: 'Keep', value: false },
+    { label: 'Delete', value: true, kind: 'destructive' },
+  ]).then((yes) => {
     if (!yes || !draft) return;
     call('deleteAlarm', { id: draft.id }).then((result) => {
       draft = null;
@@ -312,22 +368,55 @@ $('editDelete').addEventListener('click', () => {
 // Rings straight away with these settings, on the real alarm screen.
 $('editPreview').addEventListener('click', () => call('previewAlarm', { alarm: draft }));
 
-// ---- Confirmation dialog --------------------------------------------------------------------
+// ---- Dialog ---------------------------------------------------------------------------------
 
-let confirmResolve = null;
-function askConfirm(text) {
+let dialogResolve = null;
+
+/** Shows a question with buttons; resolves to the chosen button's value, or null if dismissed. */
+function ask(text, buttons) {
+  closeDialog(null);
   $('confirmText').textContent = text;
+  const box = $('confirmActions');
+  box.replaceChildren();
+  box.classList.toggle('stacked', buttons.length > 2);
+  for (const b of buttons) {
+    const button = el('button', 'button' + (b.kind ? ' ' + b.kind : ''), b.label);
+    button.addEventListener('click', () => closeDialog(b.value));
+    box.appendChild(button);
+  }
   $('confirm').hidden = false;
-  return new Promise((resolve) => { confirmResolve = resolve; });
+  return new Promise((resolve) => { dialogResolve = resolve; });
 }
-function closeConfirm(answer) {
+function closeDialog(answer) {
   $('confirm').hidden = true;
-  if (confirmResolve) confirmResolve(answer);
-  confirmResolve = null;
+  if (dialogResolve) dialogResolve(answer);
+  dialogResolve = null;
 }
-$('confirmYes').addEventListener('click', () => closeConfirm(true));
-$('confirmNo').addEventListener('click', () => closeConfirm(false));
-$('confirm').addEventListener('click', (e) => { if (e.target === $('confirm')) closeConfirm(false); });
+$('confirm').addEventListener('click', (e) => { if (e.target === $('confirm')) closeDialog(null); });
+
+// ---- Back gesture ---------------------------------------------------------------------------
+// The native side calls this when the phone's back gesture or button is used. Returning false
+// means "nothing to go back to here", and Android sends the app to the background.
+
+const draftChanged = () => !!draft && JSON.stringify(draft) !== draftOriginal;
+
+window.handleBack = () => {
+  if (!$('confirm').hidden) { closeDialog(null); return true; }
+  if (view === 'home') return false;
+  if (view === 'edit' && draftChanged()) {
+    ask('Save the changes to this alarm?', [
+      { label: 'Save', value: 'save', kind: 'primary' },
+      { label: 'Discard changes', value: 'discard', kind: 'destructive' },
+      { label: 'Keep editing', value: null },
+    ]).then((answer) => {
+      if (answer === 'save') saveDraft();
+      if (answer === 'discard') back();
+    });
+    return true;
+  }
+  back();
+  return true;
+};
 
 // ---- Station picker -------------------------------------------------------------------------
 
@@ -555,11 +644,11 @@ const refresh = () => call('getState').then((s) => {
   render(s);
 }).catch(() => {});
 
-$('addAlarm').addEventListener('click', () => { draft = newAlarm(); go('edit'); });
+$('addAlarm').addEventListener('click', () => openEditor(newAlarm()));
 $('openSetup').addEventListener('click', () => go('setup'));
 document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', back));
 
-window.addEventListener('hashchange', () => { closeConfirm(false); route(); });
+window.addEventListener('hashchange', () => { closeDialog(null); route(); });
 // Coming back from a settings screen or the alarm screen: re-read everything.
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { refresh(); $('clock').textContent = timeFmt.format(new Date()); } });
 window.addEventListener('focus', refresh);
