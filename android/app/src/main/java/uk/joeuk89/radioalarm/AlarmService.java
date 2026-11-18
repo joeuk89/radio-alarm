@@ -50,6 +50,7 @@ public class AlarmService extends Service {
     static final String ACTION_STOP = "uk.joeuk89.radioalarm.STOP";
     static final String ACTION_SNOOZE = "uk.joeuk89.radioalarm.SNOOZE";
     static final String EXTRA_BAD_STREAM = "badStream";
+    static final String EXTRA_ALARM = "alarm";
 
     private static final String CHANNEL_RINGING = "alarm_ringing";
     private static final String CHANNEL_STATUS = "alarm_status";
@@ -102,7 +103,9 @@ public class AlarmService extends Service {
         String action = intent == null ? null : intent.getAction();
         if (ACTION_START.equals(action)) {
             if (!ringing) {
-                startRinging(intent.getBooleanExtra(EXTRA_BAD_STREAM, false));
+                AlarmStore.Alarm requested = AlarmStore.Alarm.fromJsonString(intent.getStringExtra(EXTRA_ALARM));
+                startRinging(requested != null ? requested : new AlarmStore.Alarm(),
+                    intent.getBooleanExtra(EXTRA_BAD_STREAM, false));
             } else {
                 // Already ringing (e.g. a test fired during an alarm): just keep going.
                 showRingingNotification();
@@ -125,8 +128,8 @@ public class AlarmService extends Service {
 
     // ---- Starting -------------------------------------------------------------------------
 
-    private void startRinging(boolean badStream) {
-        alarm = AlarmStore.load(this);
+    private void startRinging(AlarmStore.Alarm which, boolean badStream) {
+        alarm = which;
         ringing = true;
         usingBackup = false;
         everPlayed = false;
@@ -213,7 +216,7 @@ public class AlarmService extends Service {
         player.setVolume(gainFor(alarm.startVolume));
 
         MediaItem.Builder item = new MediaItem.Builder().setUri(url);
-        if (url.contains(".m3u8")) item.setMimeType(MimeTypes.APPLICATION_M3U8);
+        if (alarm.stationHls || url.contains(".m3u8")) item.setMimeType(MimeTypes.APPLICATION_M3U8);
         player.setMediaItem(item.build());
 
         player.addListener(new Player.Listener() {
@@ -281,12 +284,12 @@ public class AlarmService extends Service {
     }
 
     /**
-     * Turns a volume percentage into playback gain. Squaring it makes equal steps in
-     * percentage sound like roughly equal steps in loudness.
+     * Turns a volume percentage into playback gain. The curve is steep at the bottom so that
+     * low settings are genuinely faint (1% is silent, 5% is barely there, 60% is clearly loud).
      */
     private static float gainFor(float percent) {
         float p = Math.max(0f, Math.min(100f, percent)) / 100f;
-        return p * p;
+        return (float) Math.pow(p, 2.5);
     }
 
     private void startBackupTone() {
@@ -345,9 +348,8 @@ public class AlarmService extends Service {
     // ---- Ending ---------------------------------------------------------------------------
 
     private void snooze() {
-        int minutes = alarm.snoozeMinutes;
         cleanUp();
-        long until = AlarmScheduler.scheduleSnooze(this, minutes);
+        long until = AlarmScheduler.scheduleSnooze(this, alarm);
         showSnoozedNotification(until);
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         stopSelf();

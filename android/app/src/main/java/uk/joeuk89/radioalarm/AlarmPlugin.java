@@ -13,22 +13,56 @@ import android.provider.Settings;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
+import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
+import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.List;
+
 /** The bridge between the web UI and the native alarm code. */
 @CapacitorPlugin(name = "Alarm")
 public class AlarmPlugin extends Plugin {
 
+    // Test-play in the station picker. Uses the same player as the alarm, at normal media volume.
+    private ExoPlayer preview;
+    private volatile String previewUrl = "";
+    private volatile String previewStatus = "idle"; // idle, loading, playing, error
+
     @Override
     public void load() {
-        // Opening the app re-registers the alarm, as a safety net.
+        // Opening the app re-registers the alarms, as a safety net.
         AlarmScheduler.sync(getContext());
     }
+
+    @Override
+    protected void handleOnPause() {
+        stopPreview();
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        stopPreview();
+    }
+
+    // ---- Alarms ---------------------------------------------------------------------------
 
     @PluginMethod
     public void getState(PluginCall call) {
@@ -36,13 +70,28 @@ public class AlarmPlugin extends Plugin {
     }
 
     @PluginMethod
-    public void setAlarm(PluginCall call) {
+    public void saveAlarm(PluginCall call) {
+        JSObject json = call.getObject("alarm");
+        if (json == null) {
+            call.reject("No alarm given");
+            return;
+        }
+        AlarmStore.Alarm alarm = AlarmStore.upsert(getContext(), AlarmStore.Alarm.fromJson(json));
+        boolean scheduled = AlarmScheduler.sync(getContext());
+        JSObject result = state();
+        result.put("scheduled", scheduled);
+        result.put("savedId", alarm.id);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void setEnabled(PluginCall call) {
         Context context = getContext();
-        AlarmStore.Alarm alarm = AlarmStore.load(context);
-        alarm.hour = clamp(call.getInt("hour", alarm.hour), 0, 23);
-        alarm.minute = clamp(call.getInt("minute", alarm.minute), 0, 59);
-        alarm.enabled = Boolean.TRUE.equals(call.getBoolean("enabled", alarm.enabled));
-        AlarmStore.save(context, alarm);
+        AlarmStore.Alarm alarm = AlarmStore.find(context, call.getInt("id", -1));
+        if (alarm != null) {
+            alarm.enabled = Boolean.TRUE.equals(call.getBoolean("enabled", false));
+            AlarmStore.upsert(context, alarm);
+        }
         boolean scheduled = AlarmScheduler.sync(context);
         JSObject result = state();
         result.put("scheduled", scheduled);
@@ -50,10 +99,22 @@ public class AlarmPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void deleteAlarm(PluginCall call) {
+        Context context = getContext();
+        int id = call.getInt("id", -1);
+        AlarmScheduler.cancelAlarm(context, id);
+        AlarmStore.delete(context, id);
+        AlarmScheduler.sync(context);
+        call.resolve(state());
+    }
+
+    @PluginMethod
     public void testAlarm(PluginCall call) {
-        int seconds = clamp(call.getInt("seconds", 60), 5, 3600);
+        JSObject json = call.getObject("alarm");
+        AlarmStore.Alarm alarm = json != null ? AlarmStore.Alarm.fromJson(json) : new AlarmStore.Alarm();
+        int seconds = AlarmStore.clamp(call.getInt("seconds", 60), 5, 3600);
         boolean badStream = Boolean.TRUE.equals(call.getBoolean("badStream", false));
-        boolean scheduled = AlarmScheduler.scheduleTest(getContext(), seconds, badStream);
+        boolean scheduled = AlarmScheduler.scheduleTest(getContext(), alarm, seconds, badStream);
         JSObject result = new JSObject();
         result.put("scheduled", scheduled);
         result.put("at", System.currentTimeMillis() + seconds * 1000L);
@@ -76,6 +137,99 @@ public class AlarmPlugin extends Plugin {
         call.resolve();
     }
 
+    // ---- Favourite stations -----------------------------------------------------------------
+
+    @PluginMethod
+    public void setFavourites(PluginCall call) {
+        JSArray favourites = call.getArray("favourites");
+        if (favourites != null) AlarmStore.setFavourites(getContext(), favourites.toString());
+        call.resolve();
+    }
+
+    // ---- Test-play --------------------------------------------------------------------------
+
+    @PluginMethod
+    public void previewStart(PluginCall call) {
+        String url = call.getString("url", "");
+        boolean hls = Boolean.TRUE.equals(call.getBoolean("hls", false));
+        if (url == null || url.isEmpty() || AlarmService.ringing) {
+            call.resolve(previewState());
+            return;
+        }
+        previewUrl = url;
+        previewStatus = "loading";
+        getActivity().runOnUiThread(() -> {
+            releasePreview();
+            try {
+                DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
+                    .setUserAgent("RadioAlarm/1.0 (Android)")
+                    .setAllowCrossProtocolRedirects(true)
+                    .setConnectTimeoutMs(8_000)
+                    .setReadTimeoutMs(8_000);
+                preview = new ExoPlayer.Builder(getContext())
+                    .setMediaSourceFactory(new DefaultMediaSourceFactory(getContext())
+                        .setDataSourceFactory(new DefaultDataSource.Factory(getContext(), http)))
+                    .build();
+                preview.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build(), true);
+                MediaItem.Builder item = new MediaItem.Builder().setUri(url);
+                if (hls || url.contains(".m3u8")) item.setMimeType(MimeTypes.APPLICATION_M3U8);
+                preview.setMediaItem(item.build());
+                preview.addListener(new Player.Listener() {
+                    @Override
+                    public void onIsPlayingChanged(boolean isPlaying) {
+                        if (isPlaying) previewStatus = "playing";
+                    }
+
+                    @Override
+                    public void onPlayerError(PlaybackException error) {
+                        previewStatus = "error";
+                    }
+                });
+                preview.setPlayWhenReady(true);
+                preview.prepare();
+            } catch (RuntimeException e) {
+                previewStatus = "error";
+            }
+        });
+        call.resolve(previewState());
+    }
+
+    @PluginMethod
+    public void previewStop(PluginCall call) {
+        stopPreview();
+        call.resolve(previewState());
+    }
+
+    @PluginMethod
+    public void previewState(PluginCall call) {
+        call.resolve(previewState());
+    }
+
+    private JSObject previewState() {
+        JSObject o = new JSObject();
+        o.put("status", previewStatus);
+        o.put("url", previewUrl);
+        return o;
+    }
+
+    private void stopPreview() {
+        previewStatus = "idle";
+        previewUrl = "";
+        if (getActivity() != null) getActivity().runOnUiThread(this::releasePreview);
+    }
+
+    private void releasePreview() {
+        if (preview != null) {
+            preview.release();
+            preview = null;
+        }
+    }
+
+    // ---- Reliability check ------------------------------------------------------------------
+
     /** Opens the Android screen (or prompt) that fixes one item on the reliability check. */
     @PluginMethod
     public void fix(PluginCall call) {
@@ -96,7 +250,7 @@ public class AlarmPlugin extends Plugin {
                         != PackageManager.PERMISSION_GRANTED
                     && !AlarmStore.getFlag(context, "askedNotifications");
                 if (canPrompt) {
-                    AlarmStore.setFlag(context, "askedNotifications");
+                    AlarmStore.setFlag(context, "askedNotifications", true);
                     ActivityCompat.requestPermissions(getActivity(),
                         new String[] { Manifest.permission.POST_NOTIFICATIONS }, 7001);
                     call.resolve();
@@ -131,20 +285,32 @@ public class AlarmPlugin extends Plugin {
         call.resolve();
     }
 
+    // ---- State sent to the web UI -----------------------------------------------------------
+
     private JSObject state() {
         Context context = getContext();
-        AlarmStore.Alarm alarm = AlarmStore.load(context);
         long now = System.currentTimeMillis();
 
-        JSObject a = new JSObject();
-        a.put("hour", alarm.hour);
-        a.put("minute", alarm.minute);
-        a.put("enabled", alarm.enabled);
-        a.put("stationName", alarm.stationName);
-        a.put("startVolume", alarm.startVolume);
-        a.put("endVolume", alarm.endVolume);
-        a.put("rampSeconds", alarm.rampSeconds);
-        a.put("snoozeMinutes", alarm.snoozeMinutes);
+        List<AlarmStore.Alarm> alarms = AlarmStore.loadAll(context);
+        JSONArray list = new JSONArray();
+        long soonest = 0;
+        for (AlarmStore.Alarm alarm : alarms) {
+            JSONObject o = alarm.toJson();
+            long next = alarm.enabled ? AlarmScheduler.nextTrigger(alarm, now) : 0;
+            try {
+                o.put("next", next);
+            } catch (JSONException ignored) {
+            }
+            if (next > 0 && (soonest == 0 || next < soonest)) soonest = next;
+            list.put(o);
+        }
+
+        JSONArray favourites;
+        try {
+            favourites = new JSONArray(AlarmStore.getFavourites(context));
+        } catch (JSONException e) {
+            favourites = new JSONArray();
+        }
 
         long snoozeUntil = AlarmStore.getSnoozeUntil(context);
 
@@ -156,8 +322,9 @@ public class AlarmPlugin extends Plugin {
         checks.put("battery", power != null && power.isIgnoringBatteryOptimizations(context.getPackageName()));
 
         JSObject result = new JSObject();
-        result.put("alarm", a);
-        result.put("nextTrigger", alarm.enabled ? AlarmScheduler.nextTrigger(alarm, now) : 0L);
+        result.put("alarms", list);
+        result.put("favourites", favourites);
+        result.put("nextTrigger", soonest);
         result.put("snoozeUntil", snoozeUntil > now ? snoozeUntil : 0L);
         result.put("ringing", AlarmService.ringing);
         result.put("checks", checks);
@@ -168,10 +335,5 @@ public class AlarmPlugin extends Plugin {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true;
         NotificationManager nm = context.getSystemService(NotificationManager.class);
         return nm != null && nm.canUseFullScreenIntent();
-    }
-
-    private static int clamp(Integer value, int min, int max) {
-        int v = value == null ? min : value;
-        return Math.max(min, Math.min(max, v));
     }
 }

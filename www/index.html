@@ -8,41 +8,129 @@
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<main class="screen">
+
+<!-- 1 · Clock + alarms -->
+<main class="screen" id="view-home">
   <header class="topbar">
     <span id="date" class="muted"></span>
+    <button id="openSetup" class="icon-button" aria-label="Reliability check and settings">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line><circle cx="9" cy="7" r="2" fill="#0B0D10"></circle><circle cx="15" cy="12" r="2" fill="#0B0D10"></circle><circle cx="8" cy="17" r="2" fill="#0B0D10"></circle></svg>
+      <span id="setupDot" class="dot" hidden></span>
+    </button>
   </header>
 
   <section class="clock-block">
     <div id="clock" class="clock">--:--</div>
     <div id="next" class="accent">&nbsp;</div>
-    <button id="cancelSnooze" class="link" hidden>Cancel snooze</button>
+    <button id="nextAction" class="link" hidden></button>
   </section>
 
-  <section class="card alarm-card">
-    <div class="alarm-main">
-      <label class="visually-hidden" for="time">Alarm time</label>
-      <input id="time" class="time" type="time" value="07:00" required>
-      <div id="station" class="station">BBC Radio 4</div>
-      <div id="detail" class="muted small">Every day</div>
+  <section id="alarms" class="alarms"></section>
+
+  <button id="addAlarm" class="button add">
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+    Add alarm
+  </button>
+</main>
+
+<!-- 2 · Edit alarm -->
+<main class="screen" id="view-edit" hidden>
+  <header class="bar">
+    <button id="editCancel" class="text-button muted">Cancel</button>
+    <span id="editTitle" class="bar-title">Edit alarm</span>
+    <button id="editSave" class="text-button strong accent-text">Save</button>
+  </header>
+
+  <label class="visually-hidden" for="editTime">Alarm time</label>
+  <input id="editTime" class="big-time" type="time" value="07:00" required>
+
+  <div id="editDays" class="days" role="group" aria-label="Repeat on"></div>
+  <p id="editDaysNote" class="muted small center"></p>
+
+  <button id="editStation" class="card row-button">
+    <span class="stack"><span class="muted small">Station</span><span id="editStationName" class="ellipsis">BBC Radio 4</span></span>
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA0A6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"></polyline></svg>
+  </button>
+
+  <section class="card sliders">
+    <span class="muted small">Gentle wake</span>
+    <div class="slider">
+      <div class="slider-head"><label for="startVolume">Start volume</label><span id="startVolumeValue">5%</span></div>
+      <input id="startVolume" type="range" min="0" max="100" step="1">
     </div>
-    <button id="toggle" class="toggle" role="switch" aria-checked="false" aria-label="Alarm on or off">
-      <span class="track"><span class="thumb"></span></span>
-    </button>
+    <div class="slider">
+      <div class="slider-head"><label for="endVolume">End volume</label><span id="endVolumeValue">60%</span></div>
+      <input id="endVolume" type="range" min="0" max="100" step="1">
+    </div>
+    <div class="slider">
+      <div class="slider-head"><label for="rampMinutes">Ramp over</label><span id="rampMinutesValue">3 min</span></div>
+      <input id="rampMinutes" type="range" min="0" max="30" step="1">
+    </div>
   </section>
 
-  <h2 class="section-title">Reliability check</h2>
+  <section class="card sliders">
+    <div class="slider">
+      <div class="slider-head"><label for="snoozeMinutes">Snooze length</label><span id="snoozeMinutesValue">9 min</span></div>
+      <input id="snoozeMinutes" type="range" min="1" max="30" step="1">
+    </div>
+  </section>
+
+  <button id="editTest" class="button">Test these settings in 1 minute</button>
+  <p id="editNote" class="muted small note">If the station hasn't started within 10 seconds, or drops out, a backup tone plays instead.</p>
+
+  <div class="spacer"></div>
+  <button id="editDelete" class="text-button danger">Delete alarm</button>
+</main>
+
+<!-- 3 · Station picker -->
+<main class="screen" id="view-stations" hidden>
+  <header class="bar left">
+    <button class="icon-button back" data-back aria-label="Back">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"></polyline></svg>
+    </button>
+    <span class="bar-title">Choose station</span>
+  </header>
+
+  <div class="search">
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA0A6" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+    <label class="visually-hidden" for="search">Search stations</label>
+    <input id="search" type="search" placeholder="Search stations" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+  </div>
+
+  <h2 class="section-title">Favourites</h2>
+  <section id="favourites" class="card list"></section>
+
+  <h2 class="section-title" id="resultsTitle" hidden>Results</h2>
+  <section id="results" class="card list" hidden></section>
+  <p id="searchNote" class="muted small note" hidden></p>
+
+  <div class="spacer"></div>
+  <p class="muted small note">Tap a station to choose it for this alarm. Play tests the stream first; the star keeps it in favourites.</p>
+</main>
+
+<!-- 5 · Reliability check -->
+<main class="screen" id="view-setup" hidden>
+  <header class="bar left">
+    <button class="icon-button back" data-back aria-label="Back">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"></polyline></svg>
+    </button>
+    <span class="bar-title">Reliability check</span>
+  </header>
+
+  <p id="setupIntro" class="muted note left">Android needs these switched on so the alarm always goes off.</p>
   <section class="card list" id="checks"></section>
 
   <h2 class="section-title">Try it</h2>
   <section class="tests">
     <button id="testRadio" class="button">Test alarm in 1 minute</button>
     <button id="testBackup" class="button">Test backup tone in 1 minute</button>
-    <p id="testNote" class="muted small note">Tap one, then lock the phone and wait.</p>
+    <p id="testNote" class="muted small note">Tap one, then lock the phone to check the whole chain.</p>
   </section>
 
+  <div class="spacer"></div>
   <footer class="build muted" id="build"></footer>
 </main>
+
 <script src="version.js"></script>
 <script src="app.js"></script>
 </body>
